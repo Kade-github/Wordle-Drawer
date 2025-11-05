@@ -16,7 +16,7 @@ void DisplayTotal()
         char[] ar = line.ToCharArray();
         if (i == selectedY)
         {
-            if (ar[selectedX] == '#')
+            if (ar[selectedX] == '#' || ar[selectedX] == 'Y')
                 ar[selectedX] = '*';
             else if (ar[selectedX] == '.')
                 ar[selectedX] = '_';
@@ -35,10 +35,11 @@ wordToGuess = Console.ReadLine() ?? "";
 while (true)
 {
     Console.Clear();
-    Console.WriteLine("Press WASD to move, Space to change, Q to quit.");
+    Console.WriteLine("Press WASD to move, Space to change (E for yellow, not always possible though), Q to quit.");
     Console.WriteLine($"Current wordle: {wordToGuess}");
     DisplayTotal();
-    var key = Console.ReadKey(true).Key;
+    var cki = Console.ReadKey(true);
+    var key = cki.Key;
     if (key == ConsoleKey.Q)
         break;
     if (key == ConsoleKey.W && selectedY > 0)
@@ -55,6 +56,12 @@ while (true)
         lineChars[selectedX] = lineChars[selectedX] == '.' ? '#' : '.';
         grid[selectedY] = new string(lineChars);
     }
+    else if (key == ConsoleKey.E) // Change to Y
+    {
+        char[] lineChars = grid[selectedY].ToCharArray();
+        lineChars[selectedX] = lineChars[selectedX] == 'Y' ? '.' : 'Y';
+        grid[selectedY] = new string(lineChars);
+    }
 }
 
 // Solve for a combination of words that have characters in the correct positions (#)
@@ -67,24 +74,41 @@ for (int i = 0; i < 6; i++)
     // Get all positions that have #
     var positions = new List<int>();
     var antiPositions = new List<int>();
+    var yellowPositions = new List<int>(); // Positions with 'I' which cause the letter in wordle to be yellow, which means it exists in the word but not in that position
     for (int j = 0; j < 5; j++)
     {
         if (grid[i][j] == '#')
             positions.Add(j);
         else if (grid[i][j] == '.')
             antiPositions.Add(j);
+        else if (grid[i][j] == 'Y')
+            yellowPositions.Add(j);
     }
     
     possibleWords = possibleWords.Where(word =>
     {
         foreach (var pos in positions)
         {
-            if (word[pos] != wordToGuess[pos])
+            if (word[pos] != wordToGuess[pos]) // Must match this character at this position
                 return false;
         }
         foreach (var pos in antiPositions)
         {
-            if (word[pos] == wordToGuess[pos])
+            if (word.Contains(wordToGuess[pos])) // It should not contain this character at all
+                return false;
+        }
+        foreach (var pos in yellowPositions)
+        {
+            // Check if the word contains the letter but not at the same position
+            if (!word.Contains(wordToGuess[pos]) || word[pos] == wordToGuess[pos])
+                return false;
+
+            // Ensure the letter is not already marked as green in another position
+            if (positions.Any(greenPos => word[greenPos] == wordToGuess[pos]))
+                return false;
+            
+            // Ensure the letter is not in any of the antiPositions
+            if (antiPositions.Any(antiPos => word[antiPos] == wordToGuess[pos]))
                 return false;
         }
         return true;
